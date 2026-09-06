@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("path");
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({
@@ -19,37 +18,100 @@ app.use(express.static(
 ));
 
 /*
+ * ============================================================
  * Zis Luau Obfuscate Premium v0.1
- * API
+ * ============================================================
+ *
+ * Basic transformation engine
+ * ============================================================
  */
 
 function obfuscate(source, options = {}) {
-    /*
-     * Placeholder สำหรับระบบจริง
-     *
-     * ขั้นต่อไปจะเสียบ:
-     * Lexer
-     * Parser
-     * AST
-     * Identifier Renamer
-     * Constant Hider
-     * String Transformer
-     * Number Transformer
-     * Control Flow
-     * Compiler
-     * VM
-     */
-
     if (typeof source !== "string") {
-        throw new Error("Invalid source");
+        throw new Error("Invalid source code");
     }
 
-    // ตอนนี้ยังไม่เปลี่ยน source
-    // เพื่อให้ทดสอบหน้าเว็บ/API ได้ก่อน
-    return source;
+    let output = source;
+
+    /*
+     * ----------------------------------------------------------
+     * String Transform
+     * ----------------------------------------------------------
+     *
+     * "is"
+     * ->
+     * string.char(105,115)
+     *
+     */
+
+    if (options.strings) {
+        output = output.replace(
+            /(["'])([\s\S]*?)\1/g,
+            (match, quote, value) => {
+                const bytes = [];
+
+                for (let i = 0; i < value.length; i++) {
+                    bytes.push(
+                        value.charCodeAt(i)
+                    );
+                }
+
+                return `string.char(${bytes.join(",")})`;
+            }
+        );
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * Number Transform
+     * ----------------------------------------------------------
+     */
+
+    if (options.numbers) {
+        output = output.replace(
+            /\b\d+(?:\.\d+)?\b/g,
+            (match) => {
+                const value = Number(match);
+
+                if (!Number.isFinite(value)) {
+                    return match;
+                }
+
+                if (value === 0) {
+                    return "(1-1)";
+                }
+
+                if (value === 1) {
+                    return "(2-1)";
+                }
+
+                return `(${value}+0)`;
+            }
+        );
+    }
+
+    /*
+     * ----------------------------------------------------------
+     * Protection Header
+     * ----------------------------------------------------------
+     */
+
+    output =
+`-- Zis Luau Obfuscate Premium v0.1
+-- Protected Source
+
+${output}`;
+
+    return output;
 }
 
-/* Health check */
+
+/*
+ * ============================================================
+ * Health Check
+ * ============================================================
+ */
+
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
@@ -59,13 +121,19 @@ app.get("/api/health", (req, res) => {
     });
 });
 
-/* Obfuscate API */
+
+/*
+ * ============================================================
+ * Obfuscate API
+ * ============================================================
+ */
+
 app.post("/api/obfuscate", (req, res) => {
     try {
-        const {
-            code,
-            options = {}
-        } = req.body || {};
+        const body = req.body || {};
+
+        const code = body.code;
+        const options = body.options || {};
 
         if (typeof code !== "string") {
             return res.status(400).json({
@@ -88,40 +156,114 @@ app.post("/api/obfuscate", (req, res) => {
             });
         }
 
-        const output = obfuscate(code, options);
+        const output = obfuscate(
+            code,
+            {
+                strings:
+                    options.strings === true,
 
-        res.json({
+                numbers:
+                    options.numbers === true,
+
+                rename:
+                    options.rename === true,
+
+                constants:
+                    options.constants === true,
+
+                controlFlow:
+                    options.controlFlow === true
+            }
+        );
+
+        return res.json({
             success: true,
+
             output,
+
             stats: {
                 inputSize: code.length,
-                outputSize: output.length
+                outputSize: output.length,
+                inputLines: code
+                    .split(/\r\n|\r|\n/)
+                    .length,
+                outputLines: output
+                    .split(/\r\n|\r|\n/)
+                    .length
             }
         });
 
     } catch (error) {
-        console.error(error);
+        console.error(
+            "[OBFUSCATE ERROR]",
+            error
+        );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            error: error.message || "Obfuscation failed"
+            error:
+                error.message ||
+                "Obfuscation failed"
         });
     }
 });
 
-/* SPA fallback */
-app.get("*", (req, res) => {
+
+/*
+ * ============================================================
+ * Root
+ * ============================================================
+ */
+
+app.get("/", (req, res) => {
     res.sendFile(
-        path.join(__dirname, "public", "index.html")
+        path.join(
+            __dirname,
+            "public",
+            "index.html"
+        )
     );
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(
-        `Zis Luau Obfuscate Premium v0.1`
-    );
 
-    console.log(
-        `Server running on port ${PORT}`
-    );
+/*
+ * ============================================================
+ * 404 API
+ * ============================================================
+ */
+
+app.use("/api", (req, res) => {
+    res.status(404).json({
+        success: false,
+        error: "API endpoint not found"
+    });
 });
+
+
+/*
+ * ============================================================
+ * Start Server
+ * ============================================================
+ */
+
+app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+        console.log(
+            "=========================================="
+        );
+
+        console.log(
+            " Zis Luau Obfuscate Premium v0.1"
+        );
+
+        console.log(
+            ` Server running on port ${PORT}`
+        );
+
+        console.log(
+            "=========================================="
+        );
+    }
+);
