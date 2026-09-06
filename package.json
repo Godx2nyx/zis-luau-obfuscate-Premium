@@ -1,0 +1,15 @@
+{
+  "name": "zis-luau-obfuscate",
+  "version": "0.1.0",
+  "description": "Zis Luau Obfuscate Premium v0.1",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
